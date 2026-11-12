@@ -21,6 +21,8 @@
     "sign:firefox": "node scripts/sign-firefox.mjs",
     "package:firefox:selfhost": "node scripts/sign-firefox.mjs --selfhost",
     "compile": "tsc --noEmit",
+    "deliver": "node scripts/deliver.mjs",
+    "sync-server": "python3 scripts/sync-server/server.py",
     "postinstall": "wxt prepare"
   },
   "dependencies": {

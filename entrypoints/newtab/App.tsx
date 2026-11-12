@@ -26,6 +26,8 @@ import { useTranslation } from "@/hooks/use-translation";
 import type { ExtensionMessage } from "@/lib/messages";
 import { analytics } from "@/lib/analytics";
 import { type SyncStatus, initSyncEngine, syncEngine, releaseSyncEngine } from "@/lib/sync-engine";
+import { DirectSyncEngine } from "@/lib/direct-sync";
+import { useDirectSyncStore } from "@/store/direct-sync-store";
 import { createSyncEngine } from "@/lib/sync-engine-runtime";
 import { registerSyncLifecycle, unregisterSyncLifecycle } from "@/lib/sync-lifecycle";
 import { api, type SyncPullResponse } from "@/lib/api";
@@ -168,33 +170,30 @@ function PageTracker() {
 }
 
 const ROUTE_TITLES: Record<string, string> = {
-  "/favorites": "Favorites",
-  "/archive": "Archive",
-  "/trash": "Trash",
-  "/tabs": "Open Tabs",
-  "/groups": "Groups",
+  "/favorites": "收藏",
+  "/archive": "归档",
+  "/trash": "回收站",
+  "/tabs": "打开的标签页",
+  "/groups": "分组",
 };
 
 function useRouteTitle(): string | undefined {
   const { pathname } = useLocation();
+  const groups = useGroupsStore((s) => s.groups);
 
   if (pathname.startsWith("/groups/")) {
-    return "Groups";
+    const groupId = pathname.slice("/groups/".length);
+    return groups.find((g) => g.id === groupId)?.name ?? "分组";
   }
 
   return ROUTE_TITLES[pathname];
 }
 
-function Layout({
-  syncStatus,
-  syncErrorMessage,
-  onForceSync,
-}: {
-  syncStatus: SyncStatus;
-  syncErrorMessage?: string | null;
-  onForceSync: () => void;
-}) {
+function Layout({ syncStatus }: { syncStatus: SyncStatus }) {
   const title = useRouteTitle();
+  const { pathname } = useLocation();
+  // 分组详情页自身渲染整页涂色边框，外层不再套默认卡片边框。
+  const pageRendersOwnFrame = pathname.startsWith("/groups/");
 
   return (
     <div className="flex h-svh overflow-hidden bg-sidebar">
@@ -211,12 +210,12 @@ function Layout({
         <SidebarProvider
           style={{ "--sidebar-offset": "3.25rem" } as React.CSSProperties}
         >
-          <BookmarksSidebar syncStatus={syncStatus} syncErrorMessage={syncErrorMessage} onForceSync={onForceSync} />
+          <BookmarksSidebar />
 
           {/* Content area: use h-svh directly so height is always definite */}
           <div className="flex flex-1 h-svh overflow-hidden lg:p-2 lg:gap-2 min-w-0">
             {/* Center content card */}
-            <div className="flex-1 flex flex-col lg:border lg:rounded-lg bg-background overflow-hidden min-w-0">
+            <div className={`flex-1 flex flex-col bg-background overflow-hidden min-w-0 ${pageRendersOwnFrame ? "" : "lg:border lg:rounded-lg"}`}>
               <BookmarksHeader title={title} />
               <Outlet />
             </div>
@@ -682,6 +681,45 @@ function SyncProvider({
   );
 }
 
+/** Owns the direct snapshot sync engine (self-hosted endpoint, shared token,
+ *  no account) while direct sync is enabled. Mirrors SyncProvider's
+ *  render-props signature so Layout needs no changes. */
+function DirectSyncProvider({
+  children,
+}: {
+  children: (syncStatus: SyncStatus, onForceSync: () => void, syncErrorMessage: string | null) => React.ReactNode;
+}) {
+  const serverUrl = useDirectSyncStore((s) => s.serverUrl);
+  const token = useDirectSyncStore((s) => s.token);
+  const deviceId = useDirectSyncStore((s) => s.deviceId);
+  const status = useDirectSyncStore((s) => s.status);
+  const errorMessage = useDirectSyncStore((s) => s.errorMessage);
+  const engineRef = useRef<DirectSyncEngine | null>(null);
+
+  useEffect(() => {
+    if (!serverUrl || !token) {
+      return;
+    }
+    const engine = new DirectSyncEngine(serverUrl, token, deviceId);
+    engineRef.current = engine;
+    engine.start();
+    const handleSyncNow = () => { void engine.forceSyncNow(); };
+    window.addEventListener("tabslate-direct-sync-now", handleSyncNow);
+    return () => {
+      window.removeEventListener("tabslate-direct-sync-now", handleSyncNow);
+      engineRef.current = null;
+      engine.destroy();
+      useDirectSyncStore.getState().setStatus("idle");
+    };
+  }, [serverUrl, token, deviceId]);
+
+  const handleForceSync = useCallback(() => {
+    void engineRef.current?.forceSyncNow();
+  }, []);
+
+  return <>{children(status, handleForceSync, errorMessage)}</>;
+}
+
 /**
  * The full dashboard is web-accessible to *.tabslate.com and localhost so the
  * marketing site can deep-link into it, but that same declaration lets any
@@ -743,38 +781,40 @@ function AppRoutes() {
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
+  const directSyncEnabled = useDirectSyncStore((s) => s.enabled);
+
+  const renderDashboard = (syncStatus: SyncStatus) => (
+    <HashRouter>
+      <PageTracker />
+      <TabsDndProvider>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Layout syncStatus={syncStatus} />
+            }
+          >
+            <Route index element={<BookmarksContent />} />
+            <Route path="favorites" element={<FavoritesContent />} />
+            <Route path="archive" element={<ArchiveContent />} />
+            <Route path="trash" element={<TrashContent />} />
+            <Route path="tabs" element={<TabsPanel />} />
+            <Route path="groups/:groupId" element={<GroupDetail />} />
+          </Route>
+        </Routes>
+      </TabsDndProvider>
+    </HashRouter>
+  );
+
   return (
     <ThemeProvider>
       <StoreGate>
         <QuotaAlert />
-        <SyncProvider>
-          {(syncStatus, onForceSync, syncErrorMessage) => (
-            <HashRouter>
-              <PageTracker />
-              <TabsDndProvider>
-                <Routes>
-                  <Route
-                    path="/"
-                    element={
-                      <Layout
-                        syncStatus={syncStatus}
-                        syncErrorMessage={syncErrorMessage}
-                        onForceSync={onForceSync}
-                      />
-                    }
-                  >
-                    <Route index element={<BookmarksContent />} />
-                    <Route path="favorites" element={<FavoritesContent />} />
-                    <Route path="archive" element={<ArchiveContent />} />
-                    <Route path="trash" element={<TrashContent />} />
-                    <Route path="tabs" element={<TabsPanel />} />
-                    <Route path="groups/:groupId" element={<GroupDetail />} />
-                  </Route>
-                </Routes>
-              </TabsDndProvider>
-            </HashRouter>
-          )}
-        </SyncProvider>
+        {directSyncEnabled ? (
+          <DirectSyncProvider>{renderDashboard}</DirectSyncProvider>
+        ) : (
+          <SyncProvider>{renderDashboard}</SyncProvider>
+        )}
       </StoreGate>
     </ThemeProvider>
   );

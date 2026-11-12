@@ -85,7 +85,7 @@ export function UngroupedSection({ tabs, onJoinRequest }: UngroupedSectionProps)
         <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50 mt-2">
           <Layers className="size-4 text-muted-foreground shrink-0" />
           <Input
-            placeholder="Group name..."
+            placeholder="分组名称..."
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}

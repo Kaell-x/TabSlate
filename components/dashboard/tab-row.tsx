@@ -141,7 +141,7 @@ export const TabRow = React.memo(function TabRow({
           variant="ghost"
           size="icon-xs"
           onClick={(e) => { e.stopPropagation(); onUngroup?.(); }}
-          title="Ungroup tab"
+          title="移出分组"
           className="size-6 text-destructive hover:bg-destructive/10"
         >
           <BrushCleaning className="size-3" />
@@ -151,7 +151,7 @@ export const TabRow = React.memo(function TabRow({
           variant="ghost"
           size="icon-xs"
           onClick={(e) => { e.stopPropagation(); onJoinGroup?.(); }}
-          title="Join group"
+          title="加入分组"
           className="size-6 text-muted-foreground hover:text-primary"
         >
           <FolderPlus className="size-3" />
@@ -186,7 +186,7 @@ export const TabRow = React.memo(function TabRow({
         variant="ghost"
         size="icon-xs"
         onClick={handleOpen}
-        title="Open in new tab"
+        title="在新标签页打开"
         className="size-6 text-muted-foreground hover:text-foreground"
       >
         <ExternalLink className="size-3" />
@@ -195,7 +195,7 @@ export const TabRow = React.memo(function TabRow({
         variant="ghost"
         size="icon-xs"
         onClick={handleClose}
-        title="Close tab"
+        title="关闭标签页"
         className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
       >
         <X className="size-3" />
@@ -265,7 +265,7 @@ export const TabRow = React.memo(function TabRow({
                 variant="ghost"
                 size="icon-xs"
                 onClick={(e) => { e.stopPropagation(); onUngroup?.(); }}
-                title="Ungroup tab"
+                title="移出分组"
                 className="size-6 rounded-md text-destructive hover:bg-destructive/10"
               >
                 <Ungroup className="size-3 text-destructive" />
@@ -275,7 +275,7 @@ export const TabRow = React.memo(function TabRow({
                 variant="ghost"
                 size="icon-xs"
                 onClick={(e) => { e.stopPropagation(); onJoinGroup?.(); }}
-                title="Join group"
+                title="加入分组"
                 className="size-6 rounded-md"
               >
                 <FolderPlus className="size-3" />
@@ -319,7 +319,7 @@ export const TabRow = React.memo(function TabRow({
               variant="ghost"
               size="icon-xs"
               onClick={handleClose}
-              title="Close tab"
+              title="关闭标签页"
               className="size-6 rounded-md hover:text-destructive"
             >
               <X className="size-3 text-destructive" />

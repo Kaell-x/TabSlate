@@ -28,6 +28,7 @@ import {
   getActiveWorkspaceCollections,
   resolveActiveWorkspaceCollectionTarget,
 } from "@/lib/workspace-visibility";
+import { resolveGlobalDefaultCollection } from "@/lib/collection-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { FaviconImage } from "@/components/ui/favicon-image";
@@ -129,7 +130,7 @@ function PopupContent() {
         );
         setSaveableCollections(refreshed);
         setSelectedCollectionId(
-          refreshed.find((collection) => collection.isDefault)?.id ?? refreshed[0]?.id ?? "",
+          resolveGlobalDefaultCollection(refreshed)?.id ?? "",
         );
         setTargetUnavailable(true);
         setSaveState("idle");

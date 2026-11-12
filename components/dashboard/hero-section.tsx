@@ -1,10 +1,8 @@
 import * as React from "react";
 import { AdBanner } from "@/components/dashboard/ad-banner";
 import { SearchBox } from "./search-box";
-import { useTranslation } from "@/hooks/use-translation";
 
 function Clock() {
-  const { language } = useTranslation();
   const [time, setTime] = React.useState(new Date());
 
   React.useEffect(() => {
@@ -12,9 +10,8 @@ function Clock() {
     return () => clearInterval(timer);
   }, []);
 
-  const localeCode = language === "zh_CN" ? "zh-CN" : "en-US";
-  const formattedTime = time.toLocaleTimeString(localeCode, { hour: '2-digit', minute: '2-digit', hour12: false });
-  const formattedDate = time.toLocaleDateString(localeCode, { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+  const formattedTime = time.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit', hour12: false });
+  const formattedDate = time.toLocaleDateString("zh-CN", { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
 
   return (
     <div className="text-center space-y-2">

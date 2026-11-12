@@ -126,12 +126,12 @@ export function JoinGroupDialog({
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 opacity-50">
                   {group.chromeId !== undefined && (
-                    <span title="Open in browser">
+                    <span title="在浏览器中打开">
                       <Monitor className="size-3" />
                     </span>
                   )}
                   {group.savedId !== undefined && (
-                    <span title="Saved group">
+                    <span title="已保存的分组">
                       <Bookmark className="size-3" />
                     </span>
                   )}

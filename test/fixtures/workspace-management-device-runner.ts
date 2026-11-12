@@ -46,6 +46,7 @@ const STORE_NAMES = [
   "tags",
   "groups",
   "group-tabs",
+  "group-categories",
   "tab-group-titles",
   "kv",
 ] as const;
@@ -57,6 +58,7 @@ const INDEX_FIELDS: Record<string, Record<string, string>> = {
   collections: { workspaceId: "workspaceId", position: "position" },
   groups: { workspaceId: "workspaceId" },
   "group-tabs": { groupId: "groupId" },
+  "group-categories": { groupId: "groupId" },
   workspaces: { position: "position" },
 };
 

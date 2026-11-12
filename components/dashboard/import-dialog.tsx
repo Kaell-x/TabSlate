@@ -27,8 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTranslation } from "@/hooks/use-translation";
-import { compareActiveCollections } from "@/lib/collection-utils";
-import { isActiveWorkspace } from "@/lib/workspace-visibility";
+import { getActiveWorkspaceCollections, isActiveWorkspace } from "@/lib/workspace-visibility";
 
 type ImportStep = 0 | 1 | 2 | 3;
 type ImportSource = "toby" | "chrome";
@@ -183,16 +182,8 @@ export function ImportDialog({ open, onOpenChange }: Props) {
   );
 
   const activeCollections = React.useMemo(
-    () =>
-      collections
-        .filter((collection) => {
-          const parent = workspaces.find(
-            (workspace) => workspace.id === collection.workspaceId,
-          );
-          return isActiveWorkspace(parent) && !collection.deletedAt && !collection.archivedAt;
-        })
-        .sort(compareActiveCollections),
-    [collections, workspaces],
+    () => getActiveWorkspaceCollections(activeWorkspaceId, workspaces, collections),
+    [activeWorkspaceId, collections, workspaces],
   );
 
   const existingBookmarkUrls = React.useMemo(() => {
@@ -587,7 +578,7 @@ export function ImportDialog({ open, onOpenChange }: Props) {
               onClick={() => handleSourceSelect("toby")}
             />
             <SourceCard
-              title="Chrome Bookmarks"
+              title="Chrome 书签"
               description={t("import_chromeDesc")}
               icon={<FileText className="size-4" />}
               onClick={() => handleSourceSelect("chrome")}

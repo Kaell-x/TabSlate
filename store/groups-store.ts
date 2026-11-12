@@ -20,6 +20,7 @@ export interface GroupTab {
   url: string;
   favicon: string;
   position: number;
+  categoryIds?: string[]; // in-group categories; local-only, never synced
 }
 
 export interface SavedGroup {
@@ -31,6 +32,13 @@ export interface SavedGroup {
   seq: number;        // 0 = never synced; >0 = server-confirmed
   deletedAt?: number; // unix ms; undefined = alive
   workspaceId: string;
+}
+
+export interface GroupCategory {
+  id: string;
+  groupId: string;
+  name: string;
+  position: number;
 }
 
 export interface GroupPurgeResult {
@@ -105,6 +113,7 @@ function groupMatchesSyncEntity(
 interface GroupsState {
   groups: SavedGroup[];
   groupTabs: GroupTab[];
+  groupCategories: GroupCategory[];
   _hydrated: boolean;
   hydrate: () => Promise<void>;
   reset: () => void;
@@ -121,6 +130,11 @@ interface GroupsState {
   removeTabFromGroup: (tabId: string) => void;
   moveTab: (tabId: string, toGroupId: string) => void;
   deleteTabFromTrash: (tabId: string) => void;
+
+  // Categories (local-only; not part of the sync protocol)
+  createCategory: (groupId: string, name: string) => string;
+  deleteCategory: (id: string) => void;
+  toggleTabCategory: (tabId: string, categoryId: string) => void;
 
   // Open
   openGroup: (groupId: string) => Promise<void>;
@@ -139,11 +153,13 @@ const pendingPermanentGroupIds = new Set<string>();
 export const useGroupsStore = create<GroupsState>()((set, get) => ({
   groups: [],
   groupTabs: [],
+  groupCategories: [],
   _hydrated: false,
   hydrate: async () => {
-    const [allGroups, groupTabs] = await Promise.all([
+    const [allGroups, groupTabs, groupCategories] = await Promise.all([
       idbGetAll<SavedGroup>("groups"),
       idbGetAll<GroupTab>("group-tabs"),
+      idbGetAll<GroupCategory>("group-categories"),
     ]);
     const groups = allGroups.filter(g => {
       if (!g.workspaceId) {
@@ -166,11 +182,11 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
     if (!faviconMigrated?.value) {
       await idbPut("kv", { key: "favicon-migrated-groups-v1", value: true });
     }
-    set({ groups, groupTabs: migratedTabs, _hydrated: true });
+    set({ groups, groupTabs: migratedTabs, groupCategories, _hydrated: true });
   },
 
   reset: () => {
-    set({ groups: [], groupTabs: [], _hydrated: true });
+    set({ groups: [], groupTabs: [], groupCategories: [], _hydrated: true });
   },
 
   createGroup: (name, color, isCompact, workspaceId) =>
@@ -219,7 +235,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
           if (Object.keys(chromePatch).length > 0) {
             updateChromeGroup(chromeGroup.id, chromePatch);
           }
-          
+
           if (patch.isCompact !== undefined) {
              const actualFullTitle = fullTitles[chromeGroup.id] || chromeGroup.title;
              const isCurrentlyCompact = chromeGroup.title.length === 1 && actualFullTitle.length > 1;
@@ -280,6 +296,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
       return { status: "blocked", reason: "offline" };
     }
     const tabs = get().groupTabs.filter(tab => tab.groupId === id);
+    const categories = get().groupCategories.filter(c => c.groupId === id);
     pendingPermanentGroupIds.add(id);
     try {
       if (!isGuest && syncEngine) {
@@ -295,6 +312,11 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
           store: "group-tabs",
           key: tab.id,
         })),
+        ...categories.map((c): BulkWriteOp => ({
+          type: "delete",
+          store: "group-categories",
+          key: c.id,
+        })),
         { type: "delete", store: "groups", key: id },
       ];
       try {
@@ -305,6 +327,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
       set((state) => ({
         groups: state.groups.filter(candidate => candidate.id !== id),
         groupTabs: state.groupTabs.filter(tab => tab.groupId !== id),
+        groupCategories: state.groupCategories.filter(c => c.groupId !== id),
       }));
       usePlanStore.getState().decrementUsage("saved_group");
       return { status: "completed" };
@@ -324,7 +347,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
     const existing = groupTabs.find(t => t.groupId === groupId && t.url === tab.url);
     if (existing) { return; }
     const position = groupTabs.filter(t => t.groupId === groupId).length;
-    const newTab: GroupTab = { id: generateId(), groupId, ...tab, position };
+    const newTab: GroupTab = { id: generateId(), groupId, ...tab, position, categoryIds: [] };
     const newGroupTabs = [...groupTabs, newTab];
     const group = groups.find(g => g.id === groupId);
     if (group) {
@@ -369,6 +392,43 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
     idbPut("group-tabs", movedTab);
   },
 
+  createCategory: (groupId, name) => {
+    const id = generateId();
+    const position = get().groupCategories.filter(c => c.groupId === groupId).length;
+    const category: GroupCategory = { id, groupId, name, position };
+    set((s) => ({ groupCategories: [...s.groupCategories, category] }));
+    idbPut("group-categories", category);
+    return id;
+  },
+
+  deleteCategory: (id) => {
+    const category = get().groupCategories.find(c => c.id === id);
+    if (!category) { return; }
+    const updatedTabs = get()
+      .groupTabs
+      .filter((t) => t.groupId === category.groupId && (t.categoryIds ?? []).includes(id))
+      .map((t) => ({ ...t, categoryIds: (t.categoryIds ?? []).filter((cid) => cid !== id) }));
+    if (updatedTabs.length > 0) {
+      const updatedById = new Map(updatedTabs.map((t) => [t.id, t]));
+      set((s) => ({ groupTabs: s.groupTabs.map((t) => updatedById.get(t.id) ?? t) }));
+      for (const t of updatedTabs) { idbPut("group-tabs", t); }
+    }
+    idbDelete("group-categories", id);
+    set((s) => ({ groupCategories: s.groupCategories.filter((c) => c.id !== id) }));
+  },
+
+  toggleTabCategory: (tabId, categoryId) => {
+    const tab = get().groupTabs.find(t => t.id === tabId);
+    if (!tab) { return; }
+    const current = tab.categoryIds ?? [];
+    const categoryIds = current.includes(categoryId)
+      ? current.filter((cid) => cid !== categoryId)
+      : [...current, categoryId];
+    const updated = { ...tab, categoryIds };
+    set((s) => ({ groupTabs: s.groupTabs.map((t) => (t.id === tabId ? updated : t)) }));
+    idbPut("group-tabs", updated);
+  },
+
   openGroup: async (groupId) => {
     const { groups, groupTabs } = get();
     const group = groups.find((g) => g.id === groupId);
@@ -379,7 +439,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
       .map((t) => t.url);
     if (!urls.length) { return; }
     const chromeGroupId = await openAsTabGroup(urls, group.name, group.color, group.isCompact);
-    
+
     // Register the full title in tabs-store so it can sync properly later
     const { useTabsStore } = await import("./tabs-store");
     const { registerGroupFullTitle } = useTabsStore.getState();
@@ -391,6 +451,15 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
   mergeFromServer: async (resp) => {
     const serverGroups = resp.entities.groups;
     if (!serverGroups?.length) { return; }
+
+    // Preserve local-only tab fields (in-group category assignments) across the
+    // server snapshot rebuild below.
+    const localCategoryIdsByTabId = new Map<string, string[]>();
+    for (const t of get().groupTabs) {
+      if (t.categoryIds && t.categoryIds.length > 0) {
+        localCategoryIdsByTabId.set(t.id, t.categoryIds);
+      }
+    }
 
     // Collect null-workspace IDs before entering the set() updater (keep updater pure).
     const nullWorkspaceIds = new Set(
@@ -461,6 +530,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
                 url: st.url,
                 favicon: normalizeFavicon(st.favicon, st.url),
                 position: st.position,
+                categoryIds: localCategoryIdsByTabId.get(st.id) ?? [],
               });
             }
           }
@@ -490,6 +560,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
               url: st.url,
               favicon: normalizeFavicon(st.favicon, st.url),
               position: st.position,
+              categoryIds: localCategoryIdsByTabId.get(st.id) ?? [],
             });
           }
         }
@@ -517,6 +588,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
         for (const t of sg.tabs) {
           idbOps.push({ type: "put", store: "group-tabs", value: {
             id: t.id, groupId: t.group_id, title: t.title, url: t.url, favicon: t.favicon, position: t.position,
+            categoryIds: localCategoryIdsByTabId.get(t.id) ?? [],
           } });
         }
       } else {
@@ -583,6 +655,7 @@ export const useGroupsStore = create<GroupsState>()((set, get) => ({
       groupTabs: state.groupTabs.filter(
         (tab) => !groupIds.has(tab.groupId) && !groupTabIds.has(tab.id),
       ),
+      groupCategories: state.groupCategories.filter((c) => !groupIds.has(c.groupId)),
     }));
   },
 

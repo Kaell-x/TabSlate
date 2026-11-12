@@ -6,7 +6,6 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LanguageSelector } from "@/components/language-selector";
 import { useTranslation } from "@/hooks/use-translation";
 import {
   DropdownMenu,
@@ -82,7 +81,7 @@ export function BookmarksHeader({ title }: BookmarksHeaderProps) {
           <div className="relative hidden md:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              placeholder="搜索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 w-64 h-9"
@@ -185,7 +184,6 @@ export function BookmarksHeader({ title }: BookmarksHeaderProps) {
           <Separator orientation="vertical" className="h-5 hidden sm:block" />
 
           <ThemeToggle />
-          <LanguageSelector />
 
           <Button variant="ghost" size="icon" asChild>
             <a

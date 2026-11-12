@@ -110,7 +110,7 @@ export function SearchOverlay({ onClose, session }: Props) {
             ref={inputRef}
             type="text"
             autoComplete="off"
-            placeholder="Search bookmarks, tabs, or the web…"
+            placeholder="搜索书签、标签页或网页…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}

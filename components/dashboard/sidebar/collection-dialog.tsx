@@ -61,7 +61,7 @@ export function CollectionDialog({ open, onOpenChange, initial, onSubmit }: Coll
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
-          <DialogTitle>{initial ? "Edit Collection" : "New Collection"}</DialogTitle>
+          <DialogTitle>{initial ? "编辑收藏集" : "新建收藏集"}</DialogTitle>
           <DialogDescription className="sr-only">
             {initial
               ? "Edit the name and icon of this collection."
@@ -78,18 +78,18 @@ export function CollectionDialog({ open, onOpenChange, initial, onSubmit }: Coll
           }}
         >
           <Field>
-            <FieldLabel htmlFor="collection-name">Name</FieldLabel>
+            <FieldLabel htmlFor="collection-name">名称</FieldLabel>
             <Input
               id="collection-name"
               name="name"
               defaultValue={initial?.name ?? ""}
-              placeholder="My Collection"
+              placeholder="我的收藏集"
               autoFocus
               required
             />
           </Field>
           <Field>
-            <FieldLabel>Icon</FieldLabel>
+            <FieldLabel>图标</FieldLabel>
             <div className="flex flex-wrap gap-1.5">
               {COLLECTION_ICONS.map((ic) => {
                 const Icon = ICON_MAP[ic] ?? Folder;

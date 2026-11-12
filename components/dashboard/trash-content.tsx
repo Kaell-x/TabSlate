@@ -62,6 +62,7 @@ import {
   purgeTargetsRemainVisible,
   type PurgeTargets,
 } from "@/lib/workspace-visibility";
+import { resolveGlobalDefaultCollection } from "@/lib/collection-utils";
 import { compareBookmarksTrashedFirst } from "@/lib/bookmark-utils";
 
 export interface GroupPurgeUiOutcome {
@@ -301,7 +302,7 @@ function TrashedBookmarkCard({
     }
 
     // 3. Fall back to default collection
-    const defaultCol = active.find(c => c.isDefault);
+    const defaultCol = resolveGlobalDefaultCollection(active);
     restoreFromTrash(bookmark.id, defaultCol?.id ?? "");
     setTargetUnavailable(false);
   }
@@ -896,7 +897,7 @@ export function TrashContent() {
       workspaceState.workspaces,
       workspaceState.collections,
     );
-    const defaultCol = active.find(c => c.isDefault);
+    const defaultCol = resolveGlobalDefaultCollection(active);
 
     // 1. Restore selected collections first
     for (const colId of selectedColIds) {
@@ -1178,7 +1179,7 @@ export function TrashContent() {
         {totalCount === 0 && (
           <EmptyState
             icon={Trash2}
-            title="Trash is empty"
+            title="回收站为空"
             description="Deleted bookmarks, collections, and groups will appear here."
           />
         )}

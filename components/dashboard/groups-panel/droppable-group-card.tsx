@@ -217,7 +217,7 @@ export function DroppableGroupCard({ group, tabs }: DroppableGroupCardProps) {
               onCheckedChange={(checked) => updateGroup(group.id, { isCompact: checked })}
               onMouseDown={(e) => e.preventDefault()}
               className="scale-75"
-              title="Toggle Compact"
+              title="切换简称模式"
             />
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tight">
               Compact
@@ -229,7 +229,7 @@ export function DroppableGroupCard({ group, tabs }: DroppableGroupCardProps) {
             size="icon-xs" 
             onClick={() => openGroup(group.id)} 
             className="size-6 hover:text-green-500"
-            title="Open group in Chrome"
+            title="在 Chrome 中打开分组"
           >
             <Play className="size-3.5" />
           </Button>
@@ -313,7 +313,7 @@ export function DroppableGroupCard({ group, tabs }: DroppableGroupCardProps) {
                   size="icon-xs"
                   onClick={() => removeTabFromGroup(tab.id)}
                   className="size-6 text-destructive hover:bg-destructive/10"
-                  title="Remove from group"
+                  title="从分组移除"
                 >
                   <BrushCleaning className="size-3" />
                 </Button>
@@ -363,7 +363,7 @@ export function DroppableGroupCard({ group, tabs }: DroppableGroupCardProps) {
                   size="icon-xs"
                   onClick={() => openInNewTab(tab.url)}
                   className="size-6 text-muted-foreground hover:text-foreground"
-                  title="Open in new tab"
+                  title="在新标签页打开"
                 >
                   <ExternalLink className="size-3" />
                 </Button>
@@ -372,7 +372,7 @@ export function DroppableGroupCard({ group, tabs }: DroppableGroupCardProps) {
                   size="icon-xs"
                   onClick={() => removeTabFromGroup(tab.id)}
                   className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  title="Delete from list"
+                  title="从列表删除"
                 >
                   <X className="size-3" />
                 </Button>

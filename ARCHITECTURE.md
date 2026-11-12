@@ -131,7 +131,7 @@ useAuthStore       ──Zustand persist──▶  chrome.storage.session  "tabs
                                     ──▶  chrome.storage.local   "tabslate-auth"  (user, refreshToken, serverUrl, otpSentAt)
 useBookmarksStore  ──手动 idbPut/Get──▶  IndexedDB  bookmarks / archived-bookmarks / trashed-bookmarks
 useWorkspaceStore  ──手动 idbPut/Get──▶  IndexedDB  workspaces / collections / tags / kv
-useGroupsStore     ──手动 idbPut/Get──▶  IndexedDB  groups / group-tabs
+useGroupsStore     ──手动 idbPut/Get──▶  IndexedDB  groups / group-tabs / group-categories
 usePlanStore       (不持久化，GET /api/plan 内存缓存，5 分钟 TTL)
 useSettingsStore   ──手动 idbPut/Get──▶  IndexedDB  kv["searchEngines"]
                    ──StoreGate 镜像──▶  chrome.storage.local  "tabslate-search-engines"（供 content script 读取）
@@ -139,7 +139,7 @@ useTabsStore       (不持久化，运行时从 Chrome API 加载)
 SSE leader         ──idbPut("kv")──▶    IndexedDB  kv["sync-leader"]  （30s TTL）
 ```
 
-`lib/idb.ts` 封装 `indexedDB.open("tabslate-db", 3)`，暴露：
+`lib/idb.ts` 封装 `indexedDB.open("tabslate-db", 4)`，暴露：
 - `idbGet/idbPut/idbDelete/idbGetAll/idbGetByIndex` — 基础单键操作
 - `idbGetMany(store, keys)` — **批量读取**，在单个 IDB 事务内并发发起 N 个 `get` 请求，性能远优于 `Promise.all(keys.map(idbGet))`（后者会创建 N 个独立事务）
 - `idbBulkWrite(ops)` — **跨 store 原子写**，在单个 readwrite 事务中执行若干 `put` / `delete`，用于 `mergeFromServer` 同步落盘
@@ -147,7 +147,7 @@ SSE leader         ──idbPut("kv")──▶    IndexedDB  kv["sync-leader"]  
 - `idbCommitWorkspaceDeleteLifecycleIntent` / `idbCommitWorkspaceLifecycleIntent` — 工作区生命周期专用的原子读写事务；前者在同一 `readwrite` 事务内校验并提交软删除（含"最后一个活跃工作区"拒绝判定），后者提交任意 workspace 快照 + intent 组合（如 restore）
 - `idbTryAcquireLock` / `idbRenewLock` / `idbReleaseLock` — 基于 `kv` 的租约互斥锁，`navigator.locks` 不可用时的 IndexedDB 回退（见下）
 
-**v3 迁移**（`oldVersion < 3`）：为 `groups` 添加 `workspaceId` 索引（`unique: false`），支持按工作区高效过滤 saved group 聚合。v2 迁移（`oldVersion >= 1 && < 2`）为 `trashed-bookmarks` 添加 `collectionId` 索引。新安装直接在 v1 建表时包含全部索引。
+**v4 迁移**（`oldVersion < 4`）：新增 `group-categories` store（keyPath `id`，索引 `groupId`），存放组内分类（`GroupCategory`）——组内私有的本地字段，不参与同步协议。v3 迁移（`oldVersion < 3`）：为 `groups` 添加 `workspaceId` 索引（`unique: false`），支持按工作区高效过滤 saved group 聚合。v2 迁移（`oldVersion >= 1 && < 2`）为 `trashed-bookmarks` 添加 `collectionId` 索引。新安装直接在 v1 建表时包含全部索引。
 
 各 store 的 `hydrate()` 在挂载时调用 `idbGetAll` 批量读取；`archived-bookmarks` 和 `trashed-bookmarks` 延迟加载（仅在进入对应路由时触发），以减少启动内存峰值。
 

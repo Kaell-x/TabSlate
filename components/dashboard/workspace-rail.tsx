@@ -18,14 +18,6 @@ import {
   WORKSPACE_GRADIENTS,
 } from "@/store/workspace-store";
 
-interface SettingsEventDetail {
-  tab?: "general" | "plan" | "account";
-}
-
-function isSettingsCustomEvent(event: Event): event is CustomEvent<SettingsEventDetail> {
-  return event instanceof CustomEvent;
-}
-
 function getInitials(name: string): string {
   const words = name.trim().split(/\s+/);
   if (words.length >= 2) {
@@ -47,16 +39,9 @@ export function WorkspaceRail({ syncStatus }: WorkspaceRailProps) {
   const [managerOpen, setManagerOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
-  const [settingsTab, setSettingsTab] = React.useState<"general" | "plan" | "account">(
-    "general",
-  );
 
   React.useEffect(() => {
-    const handleOpenSettings = (event: Event) => {
-      const tab = isSettingsCustomEvent(event)
-        ? event.detail.tab ?? "general"
-        : "general";
-      setSettingsTab(tab);
+    const handleOpenSettings = () => {
       setSettingsOpen(true);
     };
     const handleOpenImport = () => {
@@ -78,7 +63,6 @@ export function WorkspaceRail({ syncStatus }: WorkspaceRailProps) {
   );
 
   const handleOpenSettings = React.useCallback(() => {
-    setSettingsTab("general");
     setSettingsOpen(true);
   }, []);
 
@@ -162,7 +146,6 @@ export function WorkspaceRail({ syncStatus }: WorkspaceRailProps) {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        initialTab={settingsTab}
       />
       <ImportDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
     </TooltipProvider>

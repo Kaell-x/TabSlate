@@ -102,15 +102,34 @@ export function focusTab(tabId: number, windowId: number): Promise<void> {
   });
 }
 
-/** 
+/** Find an already-open tab showing this URL (normalized trailing slash). */
+async function findOpenTab(url: string): Promise<BrowserTab | undefined> {
+  const normalized = url.toLowerCase().replace(/\/$/, "");
+  const tabs = await getAllTabs();
+  return tabs.find((t) => t.url.toLowerCase().replace(/\/$/, "") === normalized);
+}
+
+/**
+ * Focus the tab that already shows this URL in any window; open a new tab
+ * otherwise. Saved-group tabs use this so restoring a session lands on an
+ * already-open tab instead of duplicating it.
+ */
+export async function focusOrOpenTab(url: string): Promise<void> {
+  const existing = await findOpenTab(url);
+  if (existing) {
+    await focusTab(existing.id, existing.windowId);
+  } else {
+    chrome.tabs.create({ url });
+  }
+}
+
+/**
  * Open a URL smartly:
  * 1. If it's already open in any tab across any window, switch to it.
  * 2. Otherwise, update the current tab to this URL.
  */
 export async function smartOpenUrl(url: string): Promise<void> {
-  const normalized = url.toLowerCase().replace(/\/$/, "");
-  const tabs = await getAllTabs();
-  const existing = tabs.find((t) => t.url.toLowerCase().replace(/\/$/, "") === normalized);
+  const existing = await findOpenTab(url);
 
   if (existing) {
     await focusTab(existing.id, existing.windowId);

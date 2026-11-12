@@ -294,13 +294,8 @@ export function BookmarksContent() {
   const [taggingBookmark, setTaggingBookmark] = React.useState<BookmarkType | null>(null);
   const [expandedCollectionIds, setExpandedCollectionIds] = React.useState<Record<string, boolean>>({});
 
-  const prevWorkspaceIdRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (prevWorkspaceIdRef.current !== null && prevWorkspaceIdRef.current !== activeWorkspaceId) {
-      setSelectedCollection("all");
-    }
-    prevWorkspaceIdRef.current = activeWorkspaceId;
-  }, [activeWorkspaceId, setSelectedCollection]);
+  // Collections are global across workspaces, so the selected collection
+  // stays put when switching workspaces.
 
   const highlightedBookmarkId = useBookmarksStore((state) => state.highlightedBookmarkId);
 

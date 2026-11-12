@@ -32,7 +32,7 @@ export function ThemeToggle() {
                 {theme === "light" && <Sun className="size-[1.2rem] scale-100 transition-all" />}
                 {theme === "dark" && <Moon className="size-[1.2rem] scale-100 transition-all text-blue-400" />}
                 {theme === "system" && <Monitor className="size-[1.2rem] scale-100 transition-all text-primary" />}
-                <span className="sr-only">Select theme</span>
+                <span className="sr-only">选择主题</span>
               </Button>
             </TooltipTrigger>
           </DropdownMenuTrigger>
@@ -45,17 +45,17 @@ export function ThemeToggle() {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("light")}>
           <Sun className="mr-2 size-4" />
-          <span>Light</span>
+          <span>浅色</span>
           {theme === "light" && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
           <Moon className="mr-2 size-4" />
-          <span>Dark</span>
+          <span>深色</span>
           {theme === "dark" && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>
           <Monitor className="mr-2 size-4" />
-          <span>System</span>
+          <span>跟随系统</span>
           {theme === "system" && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
         </DropdownMenuItem>
       </DropdownMenuContent>

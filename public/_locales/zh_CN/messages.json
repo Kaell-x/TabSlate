@@ -541,6 +541,48 @@
   "groupsPanel_addToCollection": {
     "message": "添加到收藏集"
   },
+  "groupDetail_openSelectedTabs": {
+    "message": "打开选中的 $1 个标签页"
+  },
+  "settings_directSyncTitle": {
+    "message": "直连同步"
+  },
+  "settings_directSyncDesc": {
+    "message": "通过共享令牌把全部数据同步到自己的服务器（如经 SSH 隧道）。无需账号登录；启用后将替代账号同步。"
+  },
+  "settings_directSyncUrlLabel": {
+    "message": "服务器地址"
+  },
+  "settings_directSyncTokenLabel": {
+    "message": "共享令牌"
+  },
+  "settings_directSyncSave": {
+    "message": "保存"
+  },
+  "settings_directSyncSyncNow": {
+    "message": "立即同步"
+  },
+  "settings_directSyncStatusNever": {
+    "message": "尚未同步"
+  },
+  "settings_directSyncStatusSyncing": {
+    "message": "同步中…"
+  },
+  "settings_directSyncStatusOffline": {
+    "message": "服务器不可达"
+  },
+  "settings_directSyncLastSynced": {
+    "message": "上次同步：$1"
+  },
+  "settings_directSyncUrlInvalid": {
+    "message": "地址必须是 https://，或仅限 localhost / 127.0.0.1 的 http://。"
+  },
+  "settings_directSyncTokenRequired": {
+    "message": "请输入服务端配置的共享令牌。"
+  },
+  "settings_directSyncPermissionDenied": {
+    "message": "浏览器拒绝了该地址的扩展访问权限。"
+  },
   "tabsPanel_saveAsGroup": {
     "message": "保存为分组"
   },
@@ -579,6 +621,24 @@
   },
   "groupsPanel_newCollection": {
     "message": "新建收藏集…"
+  },
+  "groupCategory_all": {
+    "message": "全部"
+  },
+  "groupCategory_add": {
+    "message": "添加分类"
+  },
+  "groupCategory_delete": {
+    "message": "删除分类"
+  },
+  "groupCategory_manage": {
+    "message": "分类"
+  },
+  "groupCategory_emptyMenu": {
+    "message": "暂无分类，请先在上方页签中添加"
+  },
+  "groupCategory_noTabsInCategory": {
+    "message": "该分类下暂无记录"
   },
   "settings_title": {
     "message": "设置"
@@ -970,9 +1030,6 @@
   },
   "import_tryAgain": {
     "message": "重试"
-  },
-  "bookmarkCard_openSmart": {
-    "message": "智能打开"
   },
   "bookmarkCard_openNewTab": {
     "message": "在新标签页中打开"

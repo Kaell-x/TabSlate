@@ -80,25 +80,25 @@ export function GroupDialog({ open, onOpenChange, onSubmit }: GroupDialogProps) 
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
             <div className="space-y-4">
               <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 w-[70%]">
-                <FieldLabel htmlFor="group-name" className="col-span-2">Group Name</FieldLabel>
+                <FieldLabel htmlFor="group-name" className="col-span-2">分组名称</FieldLabel>
                 <Input
                   id="group-name"
                   name="name"
                   defaultValue=""
-                  placeholder="e.g. Work, Social..."
+                  placeholder="例如：工作、社交..."
                   autoFocus
                 />
                 <div className="flex items-center gap-1.5">
                   <Switch id="compact-name" checked={isCompact} onCheckedChange={setIsCompact} />
                   <div className="relative text-xs text-muted-foreground select-none whitespace-nowrap">
-                    <span className="invisible" aria-hidden>Show compact name</span>
+                    <span className="invisible" aria-hidden>显示简称</span>
                     <span className="absolute top-0 left-0">{isCompact ? "Show compact name" : "Show full name"}</span>
                   </div>
                 </div>
               </div>
 
               <Field>
-                <FieldLabel>Theme Color</FieldLabel>
+                <FieldLabel>主题颜色</FieldLabel>
                 <ColorPicker value={color} onChange={setColor} />
               </Field>
             </div>
@@ -126,7 +126,7 @@ export function GroupDialog({ open, onOpenChange, onSubmit }: GroupDialogProps) 
 
               {openTabs.length === 0 ? (
                 <div className="py-20 text-center border-2 border-dashed rounded-2xl bg-muted/5">
-                  <p className="text-sm text-muted-foreground">No open tabs found in current window.</p>
+                  <p className="text-sm text-muted-foreground">当前窗口没有打开的标签页。</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">

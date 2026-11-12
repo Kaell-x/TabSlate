@@ -5,7 +5,7 @@ import type {
 } from "@/lib/workspace-lifecycle-state";
 
 const DB_NAME = "tabslate-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const WORKSPACE_LIFECYCLE_INTENTS_KEY = "workspace-lifecycle-intents-v1";
 
 export type StoreName =
@@ -17,6 +17,7 @@ export type StoreName =
   | "tags"
   | "groups"
   | "group-tabs"
+  | "group-categories"
   | "tab-group-titles"
   | "kv";
 
@@ -64,6 +65,8 @@ export function getDB(): Promise<IDBDatabase> {
           db.createObjectStore("groups", { keyPath: "id" });
           const gt = db.createObjectStore("group-tabs", { keyPath: "id" });
           gt.createIndex("groupId", "groupId");
+          const gc = db.createObjectStore("group-categories", { keyPath: "id" });
+          gc.createIndex("groupId", "groupId");
           db.createObjectStore("tab-group-titles", { keyPath: "groupId" });
           db.createObjectStore("kv", { keyPath: "key" });
         }
@@ -82,6 +85,12 @@ export function getDB(): Promise<IDBDatabase> {
           if (!groupsStore.indexNames.contains("workspaceId")) {
             groupsStore.createIndex("workspaceId", "workspaceId", { unique: false });
           }
+        }
+        if (event.oldVersion >= 1 && event.oldVersion < 4) {
+          // Add group-categories store (in-group categories; local-only, not part of the sync protocol).
+          // Fresh installs (oldVersion < 1) already created this store in the block above.
+          const gc = db.createObjectStore("group-categories", { keyPath: "id" });
+          gc.createIndex("groupId", "groupId");
         }
       };
       req.onsuccess = () => {

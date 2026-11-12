@@ -5,11 +5,9 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -54,15 +52,9 @@ import type { Collection } from "@/lib/types";
 import { CollectionDialog } from "./collection-dialog";
 import { TagDialog } from "./tag-dialog";
 import { GroupDialog } from "./group-dialog";
-import { SyncStatusIndicator } from "./sync-status";
-import type { SyncStatus } from "@/lib/sync-engine";
-import { QuotaCard } from "./quota-card";
-import { UserProfile } from "./user-profile";
 import { useTranslation } from "@/hooks/use-translation";
-import { AuthDialog } from "@/components/auth/auth-dialog";
-import type { AuthEntryMode } from "@/lib/auth-session";
-import { useAuthStore } from "@/store/auth-store";
 import { getActiveWorkspaceCollections, isActiveWorkspace } from "@/lib/workspace-visibility";
+import { resolveGlobalDefaultCollection } from "@/lib/collection-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -171,13 +163,9 @@ function AddItemButton({ label, onClick }: { label: string; onClick: () => void 
 // ---------------------------------------------------------------------------
 // BookmarksSidebar
 // ---------------------------------------------------------------------------
-interface BookmarksSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  syncStatus: SyncStatus;
-  syncErrorMessage?: string | null;
-  onForceSync: () => void;
-}
+interface BookmarksSidebarProps extends React.ComponentProps<typeof Sidebar> {}
 
-export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ...props }: BookmarksSidebarProps) {
+export function BookmarksSidebar({ ...props }: BookmarksSidebarProps) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const [collectionsOpen, setCollectionsOpen] = React.useState(true);
@@ -186,12 +174,6 @@ export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ..
   const [newCollectionOpen, setNewCollectionOpen] = React.useState(false);
   const [newTagOpen, setNewTagOpen] = React.useState(false);
   const [newGroupOpen, setNewGroupOpen] = React.useState(false);
-  const [authDialogOpen, setAuthDialogOpen] = React.useState(false);
-  const [authEntryMode, setAuthEntryMode] = React.useState<AuthEntryMode>("login");
-
-  const accessToken = useAuthStore((s) => s.accessToken);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
-  const isGuest = accessToken === null && refreshToken === null;
 
   // Fine-grained selectors — each value has its own subscription
   const selectedCollection = useBookmarksStore(s => s.selectedCollection);
@@ -237,6 +219,13 @@ export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ..
     [activeWorkspaceId, workspaces, collections]
   );
 
+  // Only the single resolved global default is shielded from delete/archive;
+  // other workspace-flagged defaults are regular folders in the global view.
+  const globalDefaultCollectionId = React.useMemo(
+    () => resolveGlobalDefaultCollection(workspaceCollections)?.id,
+    [workspaceCollections]
+  );
+
   // Memoize per-collection bookmark counts
   const bookmarkCounts = React.useMemo(() => {
     const wsIds = new Set(workspaceCollections.map((c) => c.id));
@@ -256,14 +245,6 @@ export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ..
   const handleToggleCollections = React.useCallback(() => setCollectionsOpen(v => !v), []);
   const handleToggleGroups = React.useCallback(() => setGroupsOpen(v => !v), []);
   const handleToggleTags = React.useCallback(() => setTagsOpen(v => !v), []);
-  const handleOpenLogin = React.useCallback(() => {
-    setAuthEntryMode("login");
-    setAuthDialogOpen(true);
-  }, []);
-  const handleOpenRegistration = React.useCallback(() => {
-    setAuthEntryMode("register");
-    setAuthDialogOpen(true);
-  }, []);
 
   return (
     <>
@@ -274,12 +255,7 @@ export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ..
         </Alert>
       )}
       <Sidebar collapsible="offcanvas" {...props}>
-        <SidebarHeader className="p-0">
-          <UserProfile onLogin={handleOpenLogin} />
-        </SidebarHeader>
-
-
-        <SidebarContent className={cn("px-3 pt-3", isGuest ? "pb-24" : "pb-72")}>
+        <SidebarContent className="px-3 pt-3 pb-6">
           {/* Collections */}
           <SidebarGroup className="p-0">
             <SectionHeader
@@ -345,7 +321,7 @@ export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ..
                               <CollectionIcon icon={col.icon} />
                               <span className="flex-1 text-sm truncate">{col.name}</span>
                               <div className="flex items-center">
-                                {!col.isDefault && (
+                                {col.id !== globalDefaultCollectionId && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <button
@@ -523,24 +499,6 @@ export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ..
           </SidebarGroup>
 
         </SidebarContent>
-
-        {/* Floating Quota Card & Sync Status Indicator Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-[var(--sidebar)] via-[var(--sidebar)]/98 to-transparent pt-16 pb-4 z-20 pointer-events-none flex flex-col gap-3.5">
-          {!isGuest && (
-            <div className="pointer-events-auto">
-              <QuotaCard />
-            </div>
-          )}
-          <div className="pointer-events-auto px-2">
-            <SyncStatusIndicator
-              status={syncStatus}
-              errorMessage={syncErrorMessage}
-              onForceSync={onForceSync}
-              isGuest={isGuest}
-              onRegister={handleOpenRegistration}
-            />
-          </div>
-        </div>
       </Sidebar>
 
       {/* Dialogs (rendered outside Sidebar to avoid z-index issues) */}
@@ -595,12 +553,6 @@ export function BookmarksSidebar({ syncStatus, syncErrorMessage, onForceSync, ..
           setNewGroupOpen(false);
           setTargetUnavailable(false);
         }}
-      />
-
-      <AuthDialog
-        open={authDialogOpen}
-        initialMode={authEntryMode}
-        onOpenChange={setAuthDialogOpen}
       />
     </>
   );

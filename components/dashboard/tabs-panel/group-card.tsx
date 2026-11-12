@@ -305,7 +305,7 @@ export function GroupCard({ group, tabs, onJoinRequest }: GroupCardProps) {
           }}
           onMouseDown={(e) => e.preventDefault()}
           className="scale-75"
-          title="Toggle Compact"
+          title="切换简称模式"
         />
         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tight">
           Compact

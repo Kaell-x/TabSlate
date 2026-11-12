@@ -31,6 +31,7 @@ import {
   isActiveWorkspace,
   resolveActiveWorkspaceCollectionTarget,
 } from "@/lib/workspace-visibility";
+import { resolveGlobalDefaultCollection } from "@/lib/collection-utils";
 import {
   isCollectionDropId,
   isSavedGroupDropId,
@@ -169,7 +170,7 @@ export function TabsDndProvider({ children }: { children: React.ReactNode }) {
           workspaceState.workspaces,
           workspaceState.collections,
         );
-        const defaultCol = activeCollections.find((candidate) => candidate.isDefault);
+        const defaultCol = resolveGlobalDefaultCollection(activeCollections);
         targetCollectionId = defaultCol?.id || "";
       }
 
@@ -310,7 +311,7 @@ export function TabsDndProvider({ children }: { children: React.ReactNode }) {
             workspaceState.workspaces,
             workspaceState.collections,
           );
-          const defaultCol = activeCollections.find((candidate) => candidate.isDefault);
+          const defaultCol = resolveGlobalDefaultCollection(activeCollections);
           targetCollectionId = defaultCol?.id ?? "";
         }
 
@@ -453,7 +454,7 @@ function DragPreview({ data }: { data: DragData }) {
           style={{ backgroundColor: color }}
         />
         <span className="text-sm font-medium">
-          {data.groupName || "Unnamed group"}
+          {data.groupName || "未命名分组"}
         </span>
         <span className="text-xs text-muted-foreground ml-1">
           {data.tabs.length} tabs

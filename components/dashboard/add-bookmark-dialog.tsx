@@ -28,6 +28,7 @@ import {
   isActiveWorkspace,
   resolveActiveWorkspaceCollectionTarget,
 } from "@/lib/workspace-visibility";
+import { resolveGlobalDefaultCollection } from "@/lib/collection-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -51,7 +52,7 @@ export function AddBookmarkDialog({ open, onOpenChange }: AddBookmarkDialogProps
   );
 
   const defaultCollectionId = React.useMemo(
-    () => activeCollections.find(c => c.isDefault)?.id ?? activeCollections[0]?.id ?? "",
+    () => resolveGlobalDefaultCollection(activeCollections)?.id ?? "",
     [activeCollections]
   );
 
@@ -104,7 +105,7 @@ export function AddBookmarkDialog({ open, onOpenChange }: AddBookmarkDialogProps
         state.workspaces,
         state.collections,
       );
-      setCollectionId(refreshed.find((collection) => collection.isDefault)?.id ?? refreshed[0]?.id ?? "");
+      setCollectionId(resolveGlobalDefaultCollection(refreshed)?.id ?? "");
       setTargetUnavailable(true);
       return;
     }

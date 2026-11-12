@@ -198,3 +198,74 @@
 .animate-pulse-subtle {
   animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* ── 组内分类页签（group-detail 容器顶部，连体框架式） ── */
+.gcat-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  padding: 8px 12px 0;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gcat-strip::-webkit-scrollbar { display: none; }
+
+.gcat-tab {
+  --c: #6b7280;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 15px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 15%, #fff);
+  border: none;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+.gcat-tab:hover { background: color-mix(in srgb, var(--c) 28%, #fff); }
+.gcat-tab.gcat-active {
+  background: var(--c);
+  color: #fff;
+  font-weight: 600;
+  z-index: 1;
+}
+.gcat-tab .gcat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+  flex-shrink: 0;
+}
+.gcat-tab.gcat-active .gcat-dot { background: rgba(255, 255, 255, 0.85); }
+.gcat-tab .gcat-close {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+}
+.gcat-tab .gcat-close:hover { background: rgba(0, 0, 0, 0.18); color: #fff; }
+.gcat-tab:hover .gcat-close { display: inline-flex; }
+.gcat-tab.gcat-add {
+  background: transparent;
+  border-radius: 8px;
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+  align-self: center;
+  color: #6b7280;
+}
+.gcat-tab.gcat-add:hover { background: #eef0f3; }

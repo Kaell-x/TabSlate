@@ -137,6 +137,7 @@ const INDEX_FIELDS: Record<string, Record<string, keyof FakeRecord>> = {
   collections: { workspaceId: "workspaceId", position: "position" },
   groups: { workspaceId: "workspaceId" },
   "group-tabs": { groupId: "groupId" },
+  "group-categories": { groupId: "groupId" },
   workspaces: { position: "position" },
 };
 
@@ -215,6 +216,7 @@ const STORE_NAMES = [
   "tags",
   "groups",
   "group-tabs",
+  "group-categories",
   "tab-group-titles",
   "kv",
 ];
@@ -459,6 +461,12 @@ async function seedAggregate(): Promise<void> {
     ["group-tabs", {
       id: "group-tab-unrelated", groupId: "group-unrelated", title: "Other",
     }],
+    ["group-categories", {
+      id: "group-category-a", groupId: "group-target", name: "Cat A", position: 0,
+    }],
+    ["group-categories", {
+      id: "group-category-unrelated", groupId: "group-unrelated", name: "Other cat", position: 0,
+    }],
   ];
   for (const [store, record] of records) {
     await idbPut(store, record);
@@ -608,6 +616,7 @@ describe("Workspace aggregate persistence", () => {
       ["trashed-bookmarks", ["bookmark-trashed"]],
       ["groups", ["group-target"]],
       ["group-tabs", ["group-tab-a", "group-tab-b"]],
+      ["group-categories", ["group-category-a"]],
     ];
     for (const [store, ids] of deletedRecords) {
       for (const id of ids) {
@@ -619,6 +628,7 @@ describe("Workspace aggregate persistence", () => {
     expect(await idbGet("bookmarks", "bookmark-unrelated")).toBeDefined();
     expect(await idbGet("groups", "group-unrelated")).toBeDefined();
     expect(await idbGet("group-tabs", "group-tab-unrelated")).toBeDefined();
+    expect(await idbGet("group-categories", "group-category-unrelated")).toBeDefined();
 
     expect(await idbGet("kv", "activeWorkspaceId")).toEqual({
       key: "activeWorkspaceId",

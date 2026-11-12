@@ -5,7 +5,8 @@ import { generateId } from "@/lib/id";
 import { idbGetAll, idbGet, idbPut, idbDelete, idbBulkWrite, type BulkWriteOp } from "@/lib/idb";
 import * as idb from "@/lib/idb";
 import { syncEngine } from "@/lib/sync-engine";
-import { compareActiveCollections } from "@/lib/collection-utils";
+import { compareActiveCollections, resolveGlobalDefaultCollection } from "@/lib/collection-utils";
+import { getActiveWorkspaceCollections } from "@/lib/workspace-visibility";
 import type { SyncEntity, SyncPullResponse, SyncPushEntities } from "@/lib/api";
 import { useBookmarksStore } from "@/store/bookmarks-store";
 import { useGroupsStore } from "@/store/groups-store";
@@ -128,6 +129,21 @@ function toServerTag(t: Tag): SyncEntity {
 
 function isActiveWorkspace(workspace: Workspace): boolean {
   return workspace.deletedAt === undefined;
+}
+
+/**
+ * The single globally-protected default collection: with collections shared
+ * across workspaces, exactly one default (resolved by smallest position) is
+ * shielded from delete/archive — not every workspace-flagged default.
+ */
+function protectedDefaultCollectionId(
+  collections: readonly Collection[],
+  workspaces: readonly Workspace[],
+  activeWorkspaceId: string,
+): string | undefined {
+  return resolveGlobalDefaultCollection(
+    getActiveWorkspaceCollections(activeWorkspaceId, workspaces, collections),
+  )?.id;
 }
 
 function compareWorkspacePosition(a: Workspace, b: Workspace): number {
@@ -863,13 +879,15 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       get().collections.length,
       { id: "", workspaceId, name: name ?? "", icon: icon ?? "", position: 0, seq: 0 } as Collection,
       () => {
-        const existingInWs = get().collections.filter((c) => c.workspaceId === workspaceId);
+        // Collections are a global library ordered newest-first; position is
+        // the global max + 1, not per-workspace.
+        const maxPosition = get().collections.reduce((max, c) => Math.max(max, c.position), -1);
         const col: Collection = {
           id: generateId(),
           workspaceId,
           name,
           icon,
-          position: existingInWs.length,
+          position: maxPosition + 1,
           seq: 0,
         };
         set((s) => ({ collections: [...s.collections, col] }));
@@ -895,7 +913,9 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   },
 
   deleteCollection: (id) => {
-    const col = get().collections.find(c => c.id === id && !c.isDefault);
+    const state = get();
+    const protectedId = protectedDefaultCollectionId(state.collections, state.workspaces, state.activeWorkspaceId);
+    const col = state.collections.find(c => c.id === id && c.id !== protectedId);
     if (!col) { return; }
     const trashed = { ...col, deletedAt: Date.now() };
     idbPut("collections", trashed);
@@ -906,7 +926,9 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   },
 
   archiveCollection: (id) => {
-    const col = get().collections.find(c => c.id === id && !c.isDefault);
+    const state = get();
+    const protectedId = protectedDefaultCollectionId(state.collections, state.workspaces, state.activeWorkspaceId);
+    const col = state.collections.find(c => c.id === id && c.id !== protectedId);
     if (!col) { return; }
     const archived = { ...col, archivedAt: Date.now() };
     idbPut("collections", archived);

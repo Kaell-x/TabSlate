@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useBookmarksStore } from "@/store/bookmarks-store";
 import { useWorkspaceStore } from "@/store/workspace-store";
-import { smartOpenUrl, openInNewTab } from "@/lib/chrome/tabs";
+import { openInNewTab } from "@/lib/chrome/tabs";
 import type { Bookmark, Tag } from "@/lib/types";
 
 import { Button } from "@/components/ui/button";
@@ -71,17 +71,12 @@ export const BookmarkCard = React.memo(function BookmarkCard({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }, [bookmark.url]);
-  const handleSmartOpen = React.useCallback(() => smartOpenUrl(bookmark.url), [bookmark.url]);
-  const handleNewTabOpen = React.useCallback(() => openInNewTab(bookmark.url), [bookmark.url]);
+  const handleOpen = React.useCallback(() => openInNewTab(bookmark.url), [bookmark.url]);
 
   // Shared dropdown content for both variants
   const actionsMenu = React.useMemo(() => (
     <DropdownMenuContent align="end">
-      <DropdownMenuItem onClick={handleSmartOpen}>
-        <ExternalLink className="size-4 mr-2" />
-        {t("bookmarkCard_openSmart")}
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={handleNewTabOpen}>
+      <DropdownMenuItem onClick={handleOpen}>
         <ExternalLink className="size-4 mr-2" />
         {t("bookmarkCard_openNewTab")}
       </DropdownMenuItem>
@@ -106,7 +101,7 @@ export const BookmarkCard = React.memo(function BookmarkCard({
         {t("bookmarkCard_delete")}
       </DropdownMenuItem>
     </DropdownMenuContent>
-  ), [handleSmartOpen, handleNewTabOpen, onEdit, onAddTags, archiveBookmark, trashBookmark, bookmark, t]);
+  ), [handleOpen, onEdit, onAddTags, archiveBookmark, trashBookmark, bookmark, t]);
 
   // ── List variant ────────────────────────────────────────────────────────
   if (variant === "list") {
@@ -121,7 +116,7 @@ export const BookmarkCard = React.memo(function BookmarkCard({
             isHighlighted &&
               "ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] bg-amber-50/50 dark:ring-amber-400 dark:shadow-[0_0_20px_rgba(251,191,36,0.2)] dark:bg-amber-950/20 animate-pulse-subtle",
           )}
-          onClick={handleSmartOpen}
+          onClick={handleOpen}
         >
           {dragHandleProps && (
             <div
@@ -165,7 +160,7 @@ export const BookmarkCard = React.memo(function BookmarkCard({
                 )}
               />
             </Button>
-            <Button variant="ghost" size="icon-xs" onClick={handleSmartOpen}>
+            <Button variant="ghost" size="icon-xs" onClick={handleOpen}>
               <ExternalLink className="size-4" />
             </Button>
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
@@ -194,7 +189,7 @@ export const BookmarkCard = React.memo(function BookmarkCard({
           isHighlighted &&
             "ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] bg-amber-50/50 dark:ring-amber-400 dark:shadow-[0_0_20px_rgba(251,191,36,0.2)] dark:bg-amber-950/20 animate-pulse-subtle",
         )}
-        onClick={handleSmartOpen}
+        onClick={handleOpen}
       >
         {/* Header: favicon + title + slide-in actions */}
         <div className="flex items-center gap-2 px-3 pt-3 pb-2">

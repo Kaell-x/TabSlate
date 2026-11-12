@@ -25,6 +25,7 @@ const AGGREGATE_STORES: StoreName[] = [
   "trashed-bookmarks",
   "groups",
   "group-tabs",
+  "group-categories",
   "kv",
 ];
 
@@ -35,6 +36,7 @@ const AGGREGATE_DESCENDANT_STORES: StoreName[] = [
   "trashed-bookmarks",
   "groups",
   "group-tabs",
+  "group-categories",
 ];
 
 const BOOKMARK_STORES: StoreName[] = [
@@ -183,6 +185,29 @@ function queueGroupTabDiscovery(
   };
 }
 
+function queueGroupCategoryDiscovery(
+  transaction: IDBTransaction,
+  groupId: string,
+  shouldDelete: boolean,
+): void {
+  // In-group categories are local-only records keyed by groupId; they are not
+  // tracked in the aggregate id sets (no sync entity references).
+  const request = transaction.objectStore("group-categories")
+    .index("groupId")
+    .getAll(groupId);
+  abortOnRequestError(transaction, request);
+  request.onsuccess = () => {
+    if (!shouldDelete) { return; }
+    for (const record of readRecords(request)) {
+      const id = readStringProperty(record, "id");
+      if (!id) {
+        continue;
+      }
+      deleteRecord(transaction, "group-categories", id);
+    }
+  };
+}
+
 function queueAggregateDiscovery(
   transaction: IDBTransaction,
   workspaceId: string,
@@ -222,6 +247,7 @@ function queueAggregateDiscovery(
         deleteRecord(transaction, "groups", id);
       }
       queueGroupTabDiscovery(transaction, id, sets, shouldDelete);
+      queueGroupCategoryDiscovery(transaction, id, shouldDelete);
     }
   };
   return sets;

@@ -32,7 +32,7 @@ export function TagDialog({ open, onOpenChange, onSubmit }: TagDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
-          <DialogTitle>New Tag</DialogTitle>
+          <DialogTitle>新建标签</DialogTitle>
           <DialogDescription className="sr-only">
             Create a new tag to label your bookmarks.
           </DialogDescription>
@@ -47,18 +47,18 @@ export function TagDialog({ open, onOpenChange, onSubmit }: TagDialogProps) {
           }}
         >
           <Field>
-            <FieldLabel htmlFor="tag-name">Name</FieldLabel>
+            <FieldLabel htmlFor="tag-name">名称</FieldLabel>
             <Input
               id="tag-name"
               name="name"
               defaultValue=""
-              placeholder="Tag name"
+              placeholder="标签名称"
               autoFocus
               required
             />
           </Field>
           <Field>
-            <FieldLabel>Color</FieldLabel>
+            <FieldLabel>颜色</FieldLabel>
             <div className="flex flex-wrap gap-1.5">
               {TAG_COLORS.map((c) => {
                 const bgColor = c.split(" ")[0];

@@ -66,7 +66,7 @@ export function GroupCardBase({
             {...dragHandleProps}
             data-drag-handle
             className="shrink-0 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-            title="Drag to save as group"
+            title="拖拽以保存为分组"
           >
             <GripVertical className="size-4" />
           </span>
@@ -95,7 +95,7 @@ export function GroupCardBase({
             titleSlot
           ) : (
             <span className="text-sm font-semibold truncate block">
-              {name || "Unnamed group"}
+              {name || "未命名分组"}
             </span>
           )}
         </div>

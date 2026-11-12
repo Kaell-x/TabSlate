@@ -1,5 +1,5 @@
 import type { Collection, Workspace } from "@/lib/types";
-import { compareActiveCollections } from "@/lib/collection-utils";
+import { resolveGlobalDefaultCollection } from "@/lib/collection-utils";
 
 export function isActiveWorkspace(
   workspace: Workspace | undefined,
@@ -7,19 +7,27 @@ export function isActiveWorkspace(
   return workspace !== undefined && workspace.deletedAt === undefined;
 }
 
+/**
+ * Collections form a global library shared by all active workspaces
+ * (browser-bookmarks philosophy). A collection is visible when its owner
+ * workspace is active (not soft-deleted); collections of a deleted workspace
+ * stay hidden with it and come back when the workspace is restored.
+ *
+ * The activeWorkspaceId parameter is kept for call-site compatibility and
+ * purge-target validation but no longer narrows the visible set.
+ */
 export function getCollectionsUnderActiveWorkspace(
   activeWorkspaceId: string,
   workspaces: readonly Workspace[],
   collections: readonly Collection[],
 ): Collection[] {
-  const activeWorkspace = workspaces.find(
-    (workspace) => workspace.id === activeWorkspaceId,
+  const activeWorkspaceIds = new Set(
+    workspaces
+      .filter(isActiveWorkspace)
+      .map((workspace) => workspace.id),
   );
-  if (!isActiveWorkspace(activeWorkspace)) {
-    return [];
-  }
-  return collections.filter(
-    (collection) => collection.workspaceId === activeWorkspaceId,
+  return collections.filter((collection) =>
+    activeWorkspaceIds.has(collection.workspaceId),
   );
 }
 
@@ -40,9 +48,22 @@ export function getActiveWorkspaceCollections(
   workspaces: readonly Workspace[],
   collections: readonly Collection[],
 ): Collection[] {
-  return getCollectionsUnderActiveWorkspace(activeWorkspaceId, workspaces, collections)
-    .filter((collection) => !collection.deletedAt && !collection.archivedAt)
-    .sort(compareActiveCollections);
+  const active = getCollectionsUnderActiveWorkspace(
+    activeWorkspaceId,
+    workspaces,
+    collections,
+  ).filter((collection) => !collection.deletedAt && !collection.archivedAt);
+  // The server flags one default per workspace; expose a single global
+  // default (resolved by smallest position) at the top of the list.
+  const globalDefaultId = resolveGlobalDefaultCollection(active)?.id;
+  return active.sort((left, right) => {
+    const leftIsDefault = left.id === globalDefaultId;
+    const rightIsDefault = right.id === globalDefaultId;
+    if (leftIsDefault !== rightIsDefault) {
+      return leftIsDefault ? -1 : 1;
+    }
+    return right.position - left.position;
+  });
 }
 
 export function belongsToActiveWorkspace(

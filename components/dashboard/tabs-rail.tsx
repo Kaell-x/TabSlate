@@ -220,7 +220,7 @@ export function TabsRail() {
         )}
         {!loading && tabs.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-8 px-3">
-            No open tabs
+            暂无打开的标签页
           </p>
         )}
         {!loading &&

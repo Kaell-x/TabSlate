@@ -182,11 +182,13 @@ Dialog 必须使用标准 shadcn 结构，禁止在 `DialogContent` 上添加破
 
 适配器：`lib/auth-storage-adapter.ts`（透明合并两个 storage 供 Zustand `persist` 中间件使用；含从旧 `accessToken`-in-local 的迁移路径）。
 
-#### IndexedDB — `tabslate-db` v3（`lib/idb.ts`）
+#### IndexedDB — `tabslate-db` v4（`lib/idb.ts`）
 
 v2 迁移（`oldVersion >= 1 && < 2`）：为 `trashed-bookmarks` 添加 `collectionId` 索引，支持按集合查询回收站书签。新安装直接在 v1 建表时包含此索引。
 
 v3 迁移（`oldVersion < 3`）：为 `groups` 添加 `workspaceId` 索引，供 workspace aggregate 发现（`lib/workspace-aggregate.ts`）按工作区批量定位 saved group。
+
+v4 迁移（`oldVersion < 4`）：新增 `group-categories` store（keyPath `id`，索引 `groupId`），存放组内分类（`GroupCategory`）——组内私有的本地字段，不参与同步协议；`GroupTab.categoryIds` 记录 tab 归属的分类 id 列表，同步 pull 重建 tabs 时按 id 保留该本地字段。
 
 `lib/idb.ts` 暴露的辅助函数：`idbGet`、`idbPut`、`idbDelete`、`idbGetAll`、`idbGetMany`（批量读取，**单事务** N 个 `get` 请求，性能远优于 `Promise.all(N × idbGet)`）、`idbGetByIndex`、`idbTransaction`、`idbBulkWrite`（跨多 store 原子写，多个 delete/put 在单事务中执行，用于 `mergeFromServer` 同步落盘）。
 
@@ -199,7 +201,8 @@ v3 迁移（`oldVersion < 3`）：为 `groups` 添加 `workspaceId` 索引，供
 | `collections` | `id` | `workspaceId`、`position` | 集合 |
 | `tags` | `id` | — | 标签 |
 | `groups` | `id` | `workspaceId` | 保存的标签组 |
-| `group-tabs` | `id` | `groupId` | 保存组内的 tab |
+| `group-tabs` | `id` | `groupId` | 保存组内的 tab（`categoryIds` 为本地组内分类归属，不参与同步） |
+| `group-categories` | `id` | `groupId` | 组内分类（`GroupCategory`，本地字段，不进同步协议） |
 | `tab-group-titles` | `groupId` | — | Chrome tab group 完整标题（compact 模式下 Chrome 侧只存首字母）；keyed by ephemeral Chrome group ID，重启后由 `loadTabs` 通过两层恢复逻辑重新关联 |
 | `kv` | `key` | — | 键值对：`activeWorkspaceId`、`compactGroupTitles`、`localSeq`、`sync-leader`、`searchEngines`、`guest-workspace-provenance-v1`（自动 guest seed 的 workspace/default collection 身份）、`sync-conflicts-v1`（持久化同步冲突）、`workspace-lifecycle-intents-v1`（待确认的 workspace 生命周期意图）、`workspace-lifecycle-deferred-sync-v1`（按 workspace 隔离的延迟推送快照）、`guest-workspace-orphan-recovery-v1`（legacy guest 孤儿聚合恢复标记）；按 `origin + userId` 作用域的 `workspace-parent-tombstone-capability-v1:*` 与 `workspace-parent-tombstone-full-pull-v1:*`；以及 compact group 稳定标题条目 `compact-group-title:${color}:${firstChar}`（详见 Compact group title 注意事项） |
 
@@ -245,17 +248,12 @@ Dialog 中的简单表单可使用 React 19 的 `form action` 模式。**但对�
 
 ### Active Collections 排序规范
 
-为了保证整个应用的用户体验一致，侧边栏（Sidebar）和所有选择器/下拉框（新建书签、标签组卡片、导入弹窗等）中的 **Active Collections (活跃集合)** 排序必须统一：
-1. **Default** 默认集合（`isDefault === true`）始终固定在最顶部。
-2. 其它集合按**最新保存/创建的排在最上面**（即按 `position` 降序/从大到小排列，新创建的 Collection 拥有更大的 `position` 值）。
-3. 统一使用以下排序规则：
-```ts
-.sort((a, b) => {
-  if (a.isDefault) return -1;
-  if (b.isDefault) return 1;
-  return b.position - a.position;
-})
-```
+收藏集是**跨所有活跃 Workspace 共享的全局库**（浏览器收藏夹哲学）。可见性统一由 `lib/workspace-visibility.ts` 收口：属主 Workspace 活跃（未删除）的集合即全局可见；已删除（可回收）Workspace 的集合随之隐藏，恢复后回归。所有侧边栏（Sidebar）和选择器/下拉框（新建书签、标签组卡片、导入弹窗等）**必须直接使用 `getActiveWorkspaceCollections`**，不得自行 filter/sort。
+
+排序规则（`getActiveWorkspaceCollections` 内部实现，调用方不要复刻）：
+1. **唯一全局默认**固定在最顶部。服务端按 Workspace 计算 `is_default`，全局视图下会有多个 flag；由 `resolveGlobalDefaultCollection`（`lib/collection-utils.ts`）收敛：取 `isDefault` 中 position 最小者（平局按 id），无 flag 时取 position 最小者。
+2. 其它集合按**最新保存/创建的排在最上面**（`position` 降序；`createCollection` 的 position 为全局最大 + 1）。
+3. **禁止**再用 `a.isDefault` 排序——多个 Workspace 各有一个默认，按 flag 排序会把它们全部挤到顶部。
 
 ### 多语言 (i18n) 规范
 
@@ -312,6 +310,12 @@ Dialog 中的简单表单可使用 React 19 的 `form action` 模式。**但对�
 - Verify build: `bun run build`
 - No linter or pre-commit hooks configured yet.
 
+## Git 提交规范
+
+- **提交前检查**：每次提交前必须检查本次提交内容（`git status` + `git diff --staged`），重点审查 diff 中的新增行。
+- **禁止包含个人敏感数据**：包括工作业务信息（内部项目名、内部地址/URL、业务数据等）以及密钥类内容（密码、API key、token、证书、私钥等）。
+- 如发现敏感数据，先从暂存区移除并清理文件内容，确认干净后再提交。
+
 ## 注意事项
 
 - **不要在 newtab/search popup 以外使用 store**：popup 和 background 不加载 Zustand；保存书签时优先通过 `chrome.tabs.sendMessage` 发 `{ type: "ADD_BOOKMARK", data }` 消息到 newtab（newtab 在 `App` 的 `useEffect` 中监听），newtab 不存在时回退到直接写 `chrome.storage.local`（`seq: 0`，下次 newtab 打开时由 `sweepUnsynced` 补推）
@@ -339,7 +343,7 @@ Dialog 中的简单表单可使用 React 19 的 `form action` 模式。**但对�
 - **syncEngine?.enqueue() 调用位置**：必须在 Zustand `set()` 调用之前（或完全在外部），不能在 `set((state) => {...})` updater 函数内部调用（updater 必须是纯函数）。
 - **guest workspace 恢复与 `localSeq`**：自动创建的 guest workspace 会将其 workspace/default collection 身份写入 `kv["guest-workspace-provenance-v1"]`。首次 pull 在合并服务端实体前协调：未改动的自动 seed 遇到已有账号 workspace 时丢弃；有内容的 guest workspace 在有套餐容量时迁移到确定的已确认 workspace；无可用目标或容量时保留本地并记录冲突。`App.tsx` 的 `onPullSuccess` 回调是唯一更新 `localSeq` 的地方；它必须在协调和三个 store 合并完成后写入 seq，再进行冲突感知的 `sweepUnsynced()`。`sync-conflicts-v1` 中被阻断的实体不会被自动 sweep；用户手动同步会清除冲突并重试，套餐容量释放后也会清除可恢复的 quota 根节点再补推。`bookmarks-store.sweepUnsynced` 若 archived/trashed 尚未加载，会先调 `loadArchivedBookmarks()` / `loadTrashedBookmarks()` 加载并保留在 state（load-and-keep），避免读取并丢弃产生 GC 峰值。
 - **书签延迟加载（archived / trashed）**：`useBookmarksStore` 启动时仅通过 `hydrate()` 加载 `bookmarks`（活跃书签）；`archivedBookmarks` 和 `trashedBookmarks` 两个 bucket 在首次进入 `/archive` 或 `/trash` 路由时由 `ArchiveContent` / `TrashContent` 的 `useEffect` 触发 `loadArchivedBookmarks()` / `loadTrashedBookmarks()` 加载（幂等，多次调用只执行一次）。`mergeFromServer` 在 store 未加载时使用 `idbGetMany`（单事务批量读取仅 pull delta 涉及的 ID，远优于 `idbGetAll` 全表读取）。**`_archivedLoaded` / `_trashedLoaded` 标志只能由对应 loader 设置；store action 在修改 `archivedBookmarks` / `trashedBookmarks` 前必须检查该标志，未加载时通过 IDB 直接操作而不修改 state，防止空数组覆盖真实数据。**
-- **软删除 / 归档（集合三态）**：集合有三种状态：active（`!deletedAt && !archivedAt`）、archived（`archivedAt && !deletedAt`）、trashed（`deletedAt`）。`deleteCollection` / `archiveCollection` 均为软删除——只写 `deletedAt` / `archivedAt` 并 `idbPut`，不做 `idbDelete`；`permanentlyDeleteCollection` 才真正 `idbDelete`。**`permanentlyDeleteCollection` 采用异步 push-first 模式**：先乐观移除 UI（从 `collections` state 过滤），调用 `syncEngine.forcePush({ collections: [...] })` 直接推送 `is_deleted: 2` 到服务端（非防抖队列）；push 失败时回滚 UI，push 成功后才执行 `idbDelete` + `decrementUsage("collection")`，确保 IDB 与服务端始终一致。删除/归档集合时，其下所有书签同步批量移入 `trashed-bookmarks` / `archived-bookmarks`（`trashCollectionBookmarks` / `archiveCollectionBookmarks`）；`restoreCollection` 时全部还原。**`trashCollectionBookmarks(id)` 同时覆盖 `bookmarks`（活跃）和 `archivedBookmarks`（已归档）两个 bucket**——若集合内有已归档书签，也会一并移入 `trashedBookmarks`，避免孤儿归档。`permanentlyDeleteCollectionBookmarks(id)` 不再 forcePush 书签 tombstone（服务端在处理集合 `is_deleted=2` 时已级联 `UPDATE bookmarks SET is_trashed=2`），仅执行本地 IDB 清理（同时覆盖 `trashed-bookmarks` 和 `archived-bookmarks`）。**`deleteWorkspace` 已改为 parent tombstone（父级墓碑）模型，不再级联删除子实体**——详见下方「Workspace 三态生命周期」。**`reassignCollection(fromId, toId)`** 是独立的工具方法，将 `bookmarks`（活跃）中属于 `fromId` 的书签批量改写为 `toId`；适用于集合合并等场景，与 trash/archive 生命周期操作不冲突。`mergeFromServer` 中本地待确认墓碑（`seq === 0 && (deletedAt || archivedAt)`）优先于服务端的存活状态（跳过服务端值），解决重登录后集合重新出现的 bug；`sweepUnsynced` 会在下次同步时将 `seq=0` 的墓碑补推给服务器。集合的 `isDefault` 由服务端 pull 响应携带（字段 `sc.is_default`，服务端 CTE 计算：每个 workspace 中 position 最小的活跃集合为 `true`）；`workspace-store.mergeFromServer` 直接读取 `sc.is_default` 写入 state，不再本地修复。离线/首次 hydrate 时若无 `isDefault=true` 的集合，`hydrate()` 用轻量 fallback 将最低 position 活跃集合临时标记为默认，下次 pull 后被服务端确认值覆盖。服务端集合配额检查条件为 `is_deleted < 2`：活跃、归档和回收站都占配额，只有永久删除释放配额。**`mergeFromServer` 对服务端确认删除的集合必须 update+keep（不可从 `collections` 数组移除）**：`getTrashedCollections()` 依赖 `collections.filter(c => !!c.deletedAt)` 找到回收站集合，移除后回收站在同步后失去集合分组，退化为单个书签列表。**`mergeFromServer` collections 的 `sc.is_deleted === 2` 检查是第一个条件**：state=2 记录直接 `idbDelete("collections", sc.id)` 并跳过所有合并逻辑，永不写入本地 state 或 IDB。**恢复回收站书签（`restoreFromTrash`）三级优先**：`restoreFromTrash(bookmarkId, collectionIdOverride?)` 接受可选目标集合 ID；`TrashedBookmarkCard.handleRestore` 按以下顺序解析：① 原 `collectionId` 仍为活跃集合 → 直接使用；② 同名活跃集合存在 → 使用同名集合；③ 回退到 default 集合。此逻辑在 UI 层（`trash-content.tsx`）而非 store 层实现，避免 `bookmarks-store` 反向依赖 `workspace-store`（循环依赖）。
+- **软删除 / 归档（集合三态）**：集合有三种状态：active（`!deletedAt && !archivedAt`）、archived（`archivedAt && !deletedAt`）、trashed（`deletedAt`）。`deleteCollection` / `archiveCollection` 均为软删除——只写 `deletedAt` / `archivedAt` 并 `idbPut`，不做 `idbDelete`；`permanentlyDeleteCollection` 才真正 `idbDelete`。**`permanentlyDeleteCollection` 采用异步 push-first 模式**：先乐观移除 UI（从 `collections` state 过滤），调用 `syncEngine.forcePush({ collections: [...] })` 直接推送 `is_deleted: 2` 到服务端（非防抖队列）；push 失败时回滚 UI，push 成功后才执行 `idbDelete` + `decrementUsage("collection")`，确保 IDB 与服务端始终一致。删除/归档集合时，其下所有书签同步批量移入 `trashed-bookmarks` / `archived-bookmarks`（`trashCollectionBookmarks` / `archiveCollectionBookmarks`）；`restoreCollection` 时全部还原。**`trashCollectionBookmarks(id)` 同时覆盖 `bookmarks`（活跃）和 `archivedBookmarks`（已归档）两个 bucket**——若集合内有已归档书签，也会一并移入 `trashedBookmarks`，避免孤儿归档。`permanentlyDeleteCollectionBookmarks(id)` 不再 forcePush 书签 tombstone（服务端在处理集合 `is_deleted=2` 时已级联 `UPDATE bookmarks SET is_trashed=2`），仅执行本地 IDB 清理（同时覆盖 `trashed-bookmarks` 和 `archived-bookmarks`）。**`deleteWorkspace` 已改为 parent tombstone（父级墓碑）模型，不再级联删除子实体**——详见下方「Workspace 三态生命周期」。**`reassignCollection(fromId, toId)`** 是独立的工具方法，将 `bookmarks`（活跃）中属于 `fromId` 的书签批量改写为 `toId`；适用于集合合并等场景，与 trash/archive 生命周期操作不冲突。`mergeFromServer` 中本地待确认墓碑（`seq === 0 && (deletedAt || archivedAt)`）优先于服务端的存活状态（跳过服务端值），解决重登录后集合重新出现的 bug；`sweepUnsynced` 会在下次同步时将 `seq=0` 的墓碑补推给服务器。集合的 `isDefault` 由服务端 pull 响应携带（字段 `sc.is_default`，服务端 CTE 计算：每个 workspace 中 position 最小的活跃集合为 `true`）；`workspace-store.mergeFromServer` 直接读取 `sc.is_default` 写入 state，不再本地修复。离线/首次 hydrate 时若无 `isDefault=true` 的集合，`hydrate()` 用轻量 fallback 将最低 position 活跃集合临时标记为默认，下次 pull 后被服务端确认值覆盖。服务端集合配额检查条件为 `is_deleted < 2`：活跃、归档和回收站都占配额，只有永久删除释放配额。**`mergeFromServer` 对服务端确认删除的集合必须 update+keep（不可从 `collections` 数组移除）**：`getTrashedCollections()` 依赖 `collections.filter(c => !!c.deletedAt)` 找到回收站集合，移除后回收站在同步后失去集合分组，退化为单个书签列表。**`mergeFromServer` collections 的 `sc.is_deleted === 2` 检查是第一个条件**：state=2 记录直接 `idbDelete("collections", sc.id)` 并跳过所有合并逻辑，永不写入本地 state 或 IDB。**恢复回收站书签（`restoreFromTrash`）三级优先**：`restoreFromTrash(bookmarkId, collectionIdOverride?)` 接受可选目标集合 ID；`TrashedBookmarkCard.handleRestore` 按以下顺序解析：① 原 `collectionId` 仍为活跃集合 → 直接使用；② 同名活跃集合存在 → 使用同名集合；③ 回退到全局默认集合（`resolveGlobalDefaultCollection`）。此逻辑在 UI 层（`trash-content.tsx`）而非 store 层实现，避免 `bookmarks-store` 反向依赖 `workspace-store`（循环依赖）。**删除/归档守卫只保护解析出的唯一全局默认**：`deleteCollection` / `archiveCollection` 与侧边栏的删除入口均按 `resolveGlobalDefaultCollection` 判定——其他 Workspace 的服务端 flag 默认在全局视图下是普通文件夹，可正常删/归档。
 - **Workspace 三态生命周期（parent tombstone）**：workspace 有三态——`0` 活跃、`1` 已删除但可恢复（根被打上墓碑，**子实体保持原样不动**，仅被隐藏）、`2` 终态（服务端保留一条被擦除的防复活记录，子实体物理删除）。服务端是生命周期权威；protocol version 2 通过 `lifecycle_action`（`delete` / `restore` / `purge`）显式转换，普通 metadata 变更**不能**改变生命周期状态。要点：
   - `deleteWorkspace` 只在**单个 IDB 事务**中写入根墓碑 + 生命周期意图 + 活跃工作区替换；不触碰任何 collection / bookmark / group，也**不释放配额**。
   - 只有终态 `2` 释放配额；`usage = in_use + trash` 对每种资源都成立。
@@ -349,8 +353,8 @@ Dialog 中的简单表单可使用 React 19 的 `form action` 模式。**但对�
   - 生命周期意图在 SyncEngine 的串行 pull 边界内协调（`lib/workspace-lifecycle-coordinator.ts`）；意图未结算前不得刷新普通队列。
   - 破坏性操作在执行前必须用 `purgeTargetsRemainVisible`（`lib/workspace-visibility.ts`）重新校验目标——确认对话框执行的是打开时捕获的闭包，其间远端 pull 可能已退休父工作区。
 - **groups 两态软删除 + 永久删除同步**：groups 只有 active / trashed 两态，无 archived 状态。`deleteGroup` 写 `deletedAt = Date.now()`，保留 group 在 `groups` 数组（供回收站视图过滤）；`restoreGroup` 清除 `deletedAt`，重置 `seq = 0` 并立即入队同步；**`permanentlyDeleteGroup` 采用异步 push-first 模式**：先乐观移除 UI（从 `groups` / `groupTabs` state 过滤），调用 `syncEngine.forcePush({ groups: [...] })` 直接推送 `is_deleted: 2`（非防抖队列）；push 失败时回滚 UI，push 成功后才执行 `idbDelete("groups", id)` + `idbDelete("group-tabs", tabId)` 清理本地。`mergeFromServer` groups 的 state=2 处理：`permDeletedGroupIds` 在 `set()` 外收集（保持 updater 纯函数），`set()` 内过滤掉 state=2 的 group 和对应 tabs；`set()` 后 `idbDelete("groups", id)` 和 `idbDelete("group-tabs", tabId)`；IDB persist 循环跳过 `permDeletedGroupIds` 中的记录。`TrashContent` 用 `useMemo(() => allGroups.filter(g => !!g.deletedAt && g.workspaceId === activeWorkspaceId), ...)` 派生回收站列表，支持单条 / 批量 Restore + Delete Permanently + Empty Trash。渲染活跃 groups 的所有组件必须用 `!g.deletedAt && g.workspaceId === activeWorkspaceId` 过滤。
-- **Workspace 切换与内容过滤**：所有 route-level content 组件必须按 `activeWorkspaceId` 过滤数据。`BookmarksContent` 在 `activeWorkspaceId` 变更时重置 `selectedCollection → "all"`；`FavoritesContent`、`ArchiveContent`、`TrashContent` 的 `useMemo` 均将 `activeWorkspaceId` 纳入依赖，确保切换后自动重新过滤；`ArchiveContent` / `TrashContent` 还通过 `useEffect([activeWorkspaceId])` 清空选中状态。**`groups` 有 `workspaceId: string` 字段**；sidebar、GroupsPanel 按 `!g.deletedAt && g.workspaceId === activeWorkspaceId` 过滤活跃 groups；回收站的 `trashedGroups` 同样按 `activeWorkspaceId` 过滤（工作区隔离）。
-- **`collectionId` 规范**：未分类书签用空字符串 `""`，**禁止用字面量 `"all"` 存入书签**——`getFilteredBookmarks` 只识别 `=== ""`，写入 `"all"` 会导致书签永久不可见。DnD 将书签拖到侧边栏"All Bookmarks"时，同 tab-drop 行为一致，解析为 default collection ID（而非 `""`）。
+- **Workspace 切换与内容过滤**：收藏集与书签是**全局共享**的——`getActiveWorkspaceCollections` / `getActiveWorkspaceCollectionIds` 返回所有属主 Workspace 活跃的集合，书签随其收藏集全局可见，**不按 `activeWorkspaceId` 过滤**；`BookmarksContent` 切换 Workspace 时**不重置** `selectedCollection`（收藏集跨 Workspace 仍然有效），仅保留「选中集合已不可见则回退 all」的守卫。`FavoritesContent`、`ArchiveContent`、`TrashContent` 的收藏集/书签部分随之全局汇总。**`groups` 有 `workspaceId: string` 字段**；sidebar、GroupsPanel 按 `!g.deletedAt && g.workspaceId === activeWorkspaceId` 过滤活跃 groups；回收站的 `trashedGroups` 同样按 `activeWorkspaceId` 过滤——**分组是唯一仍按 Workspace 隔离的实体**。
+- **`collectionId` 规范**：未分类书签用空字符串 `""`，**禁止用字面量 `"all"` 存入书签**——`getFilteredBookmarks` 只识别 `=== ""`，写入 `"all"` 会导致书签永久不可见。DnD 将书签拖到侧边栏"All Bookmarks"时，同 tab-drop 行为一致，解析为全局默认收藏集 ID（`resolveGlobalDefaultCollection`，而非 `""`）。
 - **前端配额执行**（`store/plan-store.ts`）：`usePlanStore` 从 `GET /api/plan` 获取套餐限额和当前用量，缓存 5 分钟（TTL），落地到 `chrome.storage.local`（key `"tabslate-plan"`）。所有 create 类 store action 开头执行标准三步：`planStore.ensureFresh()` → `checkQuota(resource)` → 若超限则 `showQuotaAlert(resource)` + `return`；成功写入本地后调用 `incrementUsage(resource)`。**永久删除** action 末尾调用 `decrementUsage(resource)`；软删除（trash/archive）不调用 `decrementUsage`——配额以永久删除为界。`guardQuota` 的 `currentCount` 参数现为可选（`number | undefined`）。各资源配额计数方式：workspace = `get().workspaces.length`（`localCount` 传入）；collection = `get().collections.length`（含 active + archived + 软删除，`localCount` 传入）；tag = `get().tags.length`（`localCount` 传入）；**bookmark = `usage.bookmarks`（不传 `localCount`，由 plan-store 维护）**；saved_group = `get().groups.filter(g => !g.deletedAt).length`（`localCount` 传入）。**书签配额规则**：后端 `WHERE is_trashed < 2`（active + trashed 均计入，永久删除才退出配额），与集合的 `is_deleted = 0` 语义一致；前端 `incrementUsage("bookmark")` 在 add 时调用，`decrementUsage("bookmark")` 在 `permanentlyDelete` / `permanentlyDeleteCollectionBookmarks` 时调用；`trashCollectionBookmarks` / `restoreCollectionBookmarks` 不再调用 increment/decrement。**集合配额 decrement 必须在 `permanentlyDeleteCollection` 上，而非 `deleteCollection`**。`addTabToGroup` 在入口处对空 `groupId` 提前返回，防止配额拦截返回空字符串时产生孤儿 IDB 记录。`onPullSuccess` 末尾调用 `usePlanStore.getState().ensureFresh()` 以在每次 pull 后自动刷新用量展示（TTL 内 no-op）。
 - **全局 Dialog 触发机制**：对于跨组件调用的对话框（如 `SettingsDialog` 和 `ImportDialog`），使用统一的 DOM 自定义事件（如 `tabslate-open-settings` 和 `tabslate-open-import`）在全局派发。`WorkspaceRail` 作为持久常驻组件，统一注册事件监听器并挂载这些弹窗，实现零耦合的解耦触发。
 - **详细架构**：见 [ARCHITECTURE.md](ARCHITECTURE.md)。

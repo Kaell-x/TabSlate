@@ -43,6 +43,7 @@ import {
   getActiveWorkspaceCollectionIds,
   getCollectionsUnderActiveWorkspace,
 } from "@/lib/workspace-visibility";
+import { resolveGlobalDefaultCollection } from "@/lib/collection-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { compareBookmarksNewestFirst } from "@/lib/bookmark-utils";
 
@@ -245,7 +246,7 @@ function ArchivedBookmarkCard({
     }
 
     // 3. Fall back to default collection
-    const defaultCol = active.find(c => c.isDefault);
+    const defaultCol = resolveGlobalDefaultCollection(active);
     const targetColId = defaultCol?.id ?? "";
     useBookmarksStore.getState().updateBookmark(bookmark.id, { collectionId: targetColId });
     restoreFromArchive(bookmark.id);
@@ -478,7 +479,7 @@ export function ArchiveContent() {
       setTargetUnavailable(true);
       return;
     }
-    const defaultCol = active.find(c => c.isDefault);
+    const defaultCol = resolveGlobalDefaultCollection(active);
 
     // 1. Restore collections
     for (const colId of selectedColIds) {
